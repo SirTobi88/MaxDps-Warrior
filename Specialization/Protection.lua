@@ -42,7 +42,8 @@ local PR = {
 	NeverSurrender    = 202561,
 	RevengeAura       = 5302,
 	Devastate         = 20243,
-	Execute	          = 163201
+	Devastator        = 236279,
+	Execute	          = 163201,
 };
 
 function Warrior:Protection()
@@ -60,11 +61,9 @@ function Warrior:Protection()
 	local maxHP = UnitHealthMax('player');
 	local healthPerc = (curentHP / maxHP) * 100;
 
-	local inExecutePhase = (talents[AR.Massacre] and targetHp < 35) or
-		targetHp < 20 or
-		(targetHp > 80 and covenantId == Venthyr);
+	local inExecutePhase = targetHp < 20 or (targetHp > 80 and covenantId == Venthyr);
 
-	local canExecute = cooldown[fd.Execute].ready and rage >= 20 and inExecutePhase
+	local canExecute = cooldown[PR.Execute].ready and rage >= 20 and inExecutePhase
 
 	fd.rage = rage;
 	fd.targetHp = targetHp;
@@ -78,7 +77,7 @@ function Warrior:Protection()
 			cooldown[PR.Avatar].ready and cooldown[PR.ColossusSmash].remains < 8
 		);
 	end
-
+	
 	if covenantId == NightFae then
 		MaxDps:GlowCooldown(PR.AncientAftershock, cooldown[PR.AncientAftershock].ready);
 	elseif covenantId == Necrolord then
@@ -87,14 +86,18 @@ function Warrior:Protection()
 		MaxDps:GlowCooldown(PR.SpearOfBastion, cooldown[PR.SpearOfBastion].ready);
 	end
 
+	MaxDps:GlowCooldown(PR.Avatar, cooldown[PR.Avatar].ready);
+	MaxDps:GlowCooldown(PR.DemoralizingShout, cooldown[PR.DemoralizingShout].ready);
+
 	if healthPerc <= 80 then
 		return Warrior:ProtectionDefense();
 	end
 
-	if targets == 1 then
-		return Warrior:ProtectionOffenseSingle();
+	if targets > 1 then
+		return Warrior:ProtectionOffenseMulti();
+	end
 
-	return Warrior:ProtectionOffenseMulti();
+	return Warrior:ProtectionOffenseSingle();
 end
 
 function Warrior:ProtectionDefense()
@@ -105,15 +108,22 @@ function Warrior:ProtectionDefense()
 	local rage = UnitPower('player', PowerTypeRage);
 	local rageMax = UnitPowerMax('player', PowerTypeRage);
 	local rageDeficit = rageMax - rage;
+	local target = fd.targets;
 
 	if not buff[PR.ShieldBlockAura].up and rage >=30 and cooldown[PR.ShieldBlock].ready then
-		return PR.ShieldBlock
+		return PR.ShieldBlock;
+	end
 
 	if buff[PR.IgnorePain].refreshable and rage >= 40 then
 		return PR.IgnorePain;
 	end
 
-	return Warrior:ProtectionOffense();
+	-- if not defense available return offensive
+	if targets == 1 then
+		return Warrior:ProtectionOffenseSingle();
+	end
+
+	return Warrior:ProtectionOffenseMulti();
 end
 
 function Warrior:ProtectionOffenseSingle()
@@ -126,15 +136,13 @@ function Warrior:ProtectionOffenseSingle()
 	local rageDeficit = rageMax - rage;
 	local canExecute = fd.canExecute;
 
-	-- thunder_clap,if=(talent.unstoppable_force.enabled&buff.avatar.up);
-	
-	if cooldown[PR.Avatar].ready then
-		return PR.Avatar;
-	end
+	--if cooldown[PR.Avatar].ready then
+	--	return PR.Avatar;
+	--end
 
-	if cooldown[PR.DemoralizingShout].ready then
-		return PR.DemoralizingShout;
-	end
+	--if cooldown[PR.DemoralizingShout].ready then
+	--	return PR.DemoralizingShout;
+	--end
 
 	if cooldown[PR.Ravager].ready then
 		return PR.Ravager;
@@ -142,6 +150,10 @@ function Warrior:ProtectionOffenseSingle()
 
 	if talents[PR.DragonRoar] and cooldown[PR.DragonRoar].ready then
 		return PR.DragonRoar;
+	end
+
+	if canExecute then
+		return PR.Execute;
 	end
 
 	if cooldown[PR.ShieldSlam].ready then
@@ -152,15 +164,16 @@ function Warrior:ProtectionOffenseSingle()
 		return PR.ThunderClap;
 	end
 
-	if canExecute then
-		return Execute;
-
 	if cooldown[PR.Revenge].ready and buff[PR.RevengeAura].up then
 		return PR.Revenge;
 	end
 
 	if cooldown[PR.Revenge].ready and rage > 75 then
 		return PR.Revenge;
+	end
+	
+	if not talents[PR.Devastator] then 
+		return PR.Devastate;
 	end
 end
 
@@ -176,13 +189,13 @@ function Warrior:ProtectionOffenseMulti()
 
 	-- thunder_clap,if=(talent.unstoppable_force.enabled&buff.avatar.up);
 	
-	if cooldown[PR.Avatar].ready then
-		return PR.Avatar;
-	end
+	--if cooldown[PR.Avatar].ready then
+	--	return PR.Avatar;
+	--end
 
-	if cooldown[PR.DemoralizingShout].ready then
-		return PR.DemoralizingShout;
-	end
+	--if cooldown[PR.DemoralizingShout].ready then
+	--	return PR.DemoralizingShout;
+	--end
 
 	if cooldown[PR.Ravager].ready then
 		return PR.Ravager;
@@ -205,11 +218,13 @@ function Warrior:ProtectionOffenseMulti()
 	end
 
 	if canExecute then
-		return Execute;
+		return PR.Execute;
+	end
 
 	if cooldown[PR.ShieldSlam].ready then
 		return PR.ShieldSlam;
 	end
 
+	return PR.Devastate;
 
 end
